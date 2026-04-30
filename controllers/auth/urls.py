@@ -1,11 +1,12 @@
 from django.urls import path
-from .views import GoogleLogin, RequestOTPView, VerifyOTPView, ResetPasswordView
+from .views import GoogleLogin, RequestOTPView, VerifyOTPView, ResetPasswordView, TenantLoginView
 from .user_view import AuthenticatedUserView
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenVerifyView, TokenRefreshView
 
 urlpatterns = [
-    # 1. Standard Auth (Login, Logout, Password Change, User details)
+    # 1. Standard Auth (Overriding Login with Tenant-Aware Login)
+    path('login/', TenantLoginView.as_view(), name='rest_login'),
     path('', include('dj_rest_auth.urls')),
 
     # 2. Registration (Uses your CustomRegisterSerializer)

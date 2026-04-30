@@ -8,7 +8,10 @@ from .categories import Category
 
 
 
-class Product(models.Model):
+from apps.tenants.models import TenantBaseModel
+
+
+class Product(TenantBaseModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
@@ -88,13 +91,13 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 
 
-class StockBatch(models.Model):
+class StockBatch(TenantBaseModel):
     """
     Handles multiple arrivals of the same product with different expiry dates.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="batches")
-    batch_number = models.CharField(max_length=100, unique=True)
+    batch_number = models.CharField(max_length=100)
     quantity = models.PositiveIntegerField(default=0)
     initial_quantity = models.PositiveIntegerField(default=0)
     
@@ -128,7 +131,7 @@ class StockBatch(models.Model):
         self.product.update_stock_from_batches()
 
 
-class ProductInventory(models.Model):
+class ProductInventory(TenantBaseModel):
     product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='inventory')
     sku = models.CharField(max_length=100, unique=False, blank=True)
     low_stock_threshold = models.PositiveIntegerField(default=5)
@@ -156,7 +159,7 @@ class ProductInventory(models.Model):
         return f"{self.product.name} - Stock: {self.product.stock}"
 
 
-class ProductImage(models.Model):
+class ProductImage(TenantBaseModel):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
     image = CloudinaryField('image', folder='products/')
     alt_text = models.CharField(max_length=255, blank=True)

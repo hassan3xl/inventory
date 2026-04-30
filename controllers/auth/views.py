@@ -20,8 +20,41 @@ def send_otp_email():
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import SocialLoginView
+from dj_rest_auth.views import LoginView
+from apps.tenants.models import TenantUser
 
 User = get_user_model()
+
+class TenantLoginView(LoginView):
+    def post(self, request, *args, **kwargs):
+        tenant = getattr(request, 'tenant', None)
+        print(f"DEBUG: Login attempt on tenant: {tenant}")
+        
+        # Proceed with normal authentication
+        response = super().post(request, *args, **kwargs)
+        
+        if response.status_code == 200:
+            user = self.user
+            print(f"DEBUG: User {user.email} authenticated. Checking tenant access...")
+            
+            # Verify user belongs to this tenant
+            if not tenant:
+                print("DEBUG: Login rejected: No tenant context.")
+                return Response(
+                    {"detail": "Business context not identified. Please use your subdomain."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            has_access = TenantUser.objects.filter(user=user, tenant=tenant).exists()
+            if not has_access:
+                print(f"DEBUG: Login rejected: User {user.email} does not belong to {tenant.subdomain}")
+                return Response(
+                    {"detail": f"Account '{user.email}' is not registered with '{tenant.name}'."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            print(f"DEBUG: Login successful for {user.email} on {tenant.subdomain}")
+        
+        return response
 
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter

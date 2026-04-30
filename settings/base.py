@@ -26,15 +26,21 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https:\/\/[\w\-]+\.ngrok\-free\.app$",
+    r"^http:\/\/[\w\-]+\.localhost:3000$",
+]
+
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-tenant",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "http://*.localhost:3000",
     "https://ebuy-django-backend.onrender.com",
     "https://ebuy-frontend.vercel.app",
-
-
 ]
 
 # Application definition
@@ -85,12 +91,12 @@ cloudinary.config(
 )
 
 MIDDLEWARE = [
+    "middlewares.tenant_middleware.TenantMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "middlewares.tenant_middleware.TenantMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 

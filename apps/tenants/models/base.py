@@ -13,7 +13,7 @@ class TenantManager(models.Manager):
         return TenantQuerySet(self.model, using=self._db).filter_by_tenant()
 
 class TenantBaseModel(models.Model):
-    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, null=True, blank=True)
 
     objects = TenantManager()
     plain_objects = models.Manager() # For cases where we need all records (e.g. platform admin)

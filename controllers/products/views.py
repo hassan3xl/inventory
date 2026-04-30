@@ -10,10 +10,11 @@ from apps.products.api import (
 from apps.products.models import ProductImage
 
 # from ..config.permissions import IsMerchantUser, IsActiveVerifiedMerchant
+from apps.tenants.permissions.tenant_roles import HasTenantAccess, IsTenantAdmin, IsTenantManager, IsTenantStaff
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework import status, permissions, viewsets
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
 
@@ -23,7 +24,7 @@ from django.db.models import Sum, F, Q
 from django.utils import timezone
 
 class InventoryStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasTenantAccess]
 
     def get(self, request):
         now = timezone.now().date()
@@ -58,7 +59,7 @@ class InventoryStatsView(APIView):
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = ProductCategorySerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, HasTenantAccess]
     lookup_field = 'name'
     
     def get_serializer_class(self):
@@ -68,11 +69,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
-    permission_classes = [
-        IsAuthenticated, 
-        # IsMerchantUser, 
-        # IsActiveVerifiedMerchant
-    ]
+    permission_classes = [IsAuthenticated, HasTenantAccess]
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -84,7 +81,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 
 class ProductInventoryView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasTenantAccess]
 
     def patch(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
@@ -104,6 +101,7 @@ class ProductInventoryView(APIView):
 
 
 class ProductImagesViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, HasTenantAccess]
     from rest_framework.parsers import MultiPartParser, FormParser
     parser_classes = (MultiPartParser, FormParser)
 
