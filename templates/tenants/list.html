@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Tenants - Platform Admin{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-2">
+        <h1 class="text-3xl font-bold tracking-tight">Tenants</h1>
+        <p class="text-muted-foreground">Manage all businesses using the platform.</p>
+    </div>
+    <div class="mt-4 sm:mt-0">
+        <button type="button" @click="modalOpen = true" class="shadcn-btn inline-flex items-center justify-center px-4 py-2 text-sm shadow-sm transition-all duration-200">
+            <i class="fas fa-plus mr-2"></i>
+            Register Tenant
+        </button>
+    </div>
+</div>
+
+<div class="rounded-xl border border-border bg-background shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="[&_tr]:border-b border-border bg-muted/50">
+                <tr class="border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Tenant Name</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Subdomain</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Type</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Created</th>
+                    <th class="h-12 px-4 text-right align-middle font-medium text-muted-foreground"></th>
+                </tr>
+            </thead>
+            <tbody class="[&_tr:last-child]:border-0 divide-y divide-border">
+                {% for tenant in tenants %}
+                <tr class="border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                    <td class="p-4 align-middle font-medium">
+                        {{ tenant.name }}
+                    </td>
+                    <td class="p-4 align-middle text-muted-foreground">
+                        <a href="http://{{ tenant.subdomain }}.myapp.com" class="hover:text-primary transition-colors hover:underline underline-offset-4" target="_blank">
+                            <i class="fas fa-external-link-alt text-xs mr-1 opacity-50"></i>
+                            {{ tenant.subdomain }}.myapp.com
+                        </a>
+                    </td>
+                    <td class="p-4 align-middle text-muted-foreground font-medium">
+                        {{ tenant.get_business_type_display }}
+                    </td>
+                    <td class="p-4 align-middle">
+                        {% if tenant.is_active %}
+                            <div class="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-500 transition-colors">Active</div>
+                        {% else %}
+                            <div class="inline-flex items-center rounded-full border border-destructive/20 bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive transition-colors">Suspended</div>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 align-middle text-muted-foreground">
+                        {{ tenant.created_at|date:"M d, Y" }}
+                    </td>
+                    <td class="p-4 align-middle text-right">
+                        <a href="{% url 'tenant_detail' pk=tenant.id %}" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 w-9">
+                            <i class="fas fa-chevron-right text-muted-foreground"></i>
+                            <span class="sr-only">Details for {{ tenant.name }}</span>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="p-12 text-center text-muted-foreground">
+                        <i class="fas fa-building text-4xl mb-4 opacity-30"></i>
+                        <p class="text-base font-semibold text-foreground">No tenants found</p>
+                        <p class="text-sm mt-1">Get started by creating a new tenant.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% block base_modal %}
+<!-- Registration Modal -->
+<div x-cloak x-show="modalOpen" class="relative z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <!-- Backdrop with dedicated click handler to close -->
+    <div x-show="modalOpen" 
+         x-transition:enter="ease-out duration-300" 
+         x-transition:enter-start="opacity-0" 
+         x-transition:enter-end="opacity-100" 
+         x-transition:leave="ease-in duration-200" 
+         x-transition:leave-start="opacity-100" 
+         x-transition:leave-end="opacity-0" 
+         @click="modalOpen = false"
+         class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"></div>
+
+    <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <!-- Modal Content - Removed @click.away to prevent accidental closing -->
+            <div x-show="modalOpen" 
+                 x-transition:enter="ease-out duration-200" 
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" 
+                 x-transition:leave="ease-in duration-150" 
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" 
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
+                 class="relative transform overflow-hidden rounded-xl border border-border bg-background text-left shadow-2xl transition-all sm:my-8 w-full sm:max-w-lg">
+                
+                <form action="{% url 'tenant_list' %}" method="POST" x-data="{ 
+                    name: '', 
+                    subdomain: '',
+                    autoSlug: true,
+                    slugify(text) {
+                        return text.toLowerCase()
+                            .replace(/[^a-z0-9]/g, '-')
+                            .replace(/-+/g, '-')
+                            .replace(/^-|-$/g, '');
+                    },
+                    updateSubdomain() {
+                        if (this.autoSlug) {
+                            this.subdomain = this.slugify(this.name);
+                        }
+                    }
+                }">
+                    {% csrf_token %}
+                    <div class="p-6">
+                        <div class="flex flex-col space-y-1.5 text-center sm:text-left mb-8">
+                            <h2 class="text-xl font-bold leading-none tracking-tight text-foreground" id="modal-title">Register New Tenant</h2>
+                            <p class="text-sm text-muted-foreground">Setup a new business environment on the platform.</p>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <!-- Business Name -->
+                            <div class="space-y-2">
+                                <label for="name" class="text-sm font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Business Name</label>
+                                <input type="text" name="name" id="name" x-model="name" @input="updateSubdomain" class="shadcn-input flex h-10 w-full px-3 py-2 text-sm placeholder:text-muted-foreground bg-background/50 border-zinc-800" placeholder="e.g. Marcus Grocery" required>
+                            </div>
+
+                            <!-- Admin Email -->
+                            <div class="space-y-2">
+                                <label for="admin_email" class="text-sm font-semibold leading-none">Administrator Email</label>
+                                <input type="email" name="admin_email" id="admin_email" class="shadcn-input flex h-10 w-full px-3 py-2 text-sm placeholder:text-muted-foreground bg-background/50 border-zinc-800" placeholder="admin@business.com" required>
+                                <p class="text-[0.75rem] text-muted-foreground italic">Login credentials will be sent to this address.</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <!-- Business Type -->
+                                <div class="space-y-2">
+                                    <label for="business_type" class="text-sm font-semibold leading-none">Category</label>
+                                    <div class="relative">
+                                        <select name="business_type" id="business_type" class="shadcn-input flex h-10 w-full items-center justify-between rounded-md px-3 py-2 text-sm appearance-none bg-background/50 border-zinc-800" required>
+                                            {% for value, label in business_types %}
+                                            <option value="{{ value }}" class="bg-zinc-950 text-foreground">{{ label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground">
+                                            <i class="fas fa-chevron-down text-[10px]"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Subdomain -->
+                                <div class="space-y-2">
+                                    <label for="subdomain" class="text-sm font-semibold leading-none">Subdomain</label>
+                                    <div class="flex rounded-md border border-zinc-800 bg-background/50 shadow-sm overflow-hidden focus-within:ring-1 focus-within:ring-ring transition-all">
+                                        <input type="text" name="subdomain" id="subdomain" x-model="subdomain" @input="autoSlug = false" class="flex h-10 w-full bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none border-0" placeholder="subdomain" required>
+                                        <div class="flex items-center justify-center bg-zinc-900 px-3 text-xs font-medium text-muted-foreground border-l border-zinc-800">
+                                            .myapp.com
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center p-6 pt-2 justify-end space-x-3 border-t border-border mt-4">
+                        <button type="button" @click="modalOpen = false" class="shadcn-btn-secondary inline-flex items-center justify-center h-10 px-6 py-2 text-sm font-medium transition-colors border-zinc-800">Cancel</button>
+                        <button type="submit" class="shadcn-btn inline-flex items-center justify-center h-10 px-6 py-2 text-sm font-bold transition-all shadow-md hover:scale-[1.02]">
+                            <i class="fas fa-rocket mr-2 text-xs"></i> Register Business
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% endblock %}
