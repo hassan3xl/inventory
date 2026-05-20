@@ -1,20 +1,27 @@
 #!/bin/bash
 
-# Wait for database to be ready
 echo "Waiting for database..."
 DB_HOST=${DB_HOST:-db}
 DB_PORT=${DB_PORT:-5432}
 
-while ! nc -z $DB_HOST $DB_PORT; do
-  echo "Database not ready, waiting..."
-  sleep 1
-done
+if command -v nc >/dev/null 2>&1; then
+  while ! nc -z $DB_HOST $DB_PORT; do
+    echo "Database not ready, waiting..."
+    sleep 1
+  done
+else
+  echo "nc not found, sleeping for 5s..."
+  sleep 5
+fi
+
 echo "Database is ready!"
 
-# In a real app we would run migrations here:
-# alembic upgrade head
+# echo "Running migrations..."
+# python manage.py migrate --noinput
 
-# Start the server
-echo "Starting FastAPI server..."
-# Using uvicorn as the ASGI server. We specify app.main:app because of the project structure
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# echo "Collecting static files..."
+# python manage.py collectstatic --noinput
+
+echo "Starting Django development server..."
+
+exec python manage.py runserver 0.0.0.0:8000

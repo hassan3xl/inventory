@@ -20,6 +20,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the code
 COPY . .
 
-# Command to run FastAPI with hot-reload
-# Assuming your app is in main.py and called 'app'
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Command to run entrypoint script
+CMD ["bash", "entrypoint.sh"]

@@ -1,36 +1,54 @@
+from dj_database_url import parse
+import socket
 from .base import *
+import os
 
 DEBUG = True
+hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
+INTERNAL_IPS = [ip[:-1] + "1" for ip in ips] + ["127.0.0.1"]
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
-DEBUG = True
+# Load configuration from src.config
+from src.config import (
+    ALLOWED_ORIGINS, 
+    ALLOWED_HOSTS, 
+    DATABASE_URL,
+    SECRET_KEY as CONFIG_SECRET_KEY,
+)
 
-# Use SQLite by default for quick local setup, but allow overriding
-# with Postgres environment variables (useful when running Postgres
-# in Docker and running `python manage.py runserver` locally).
-if os.getenv("DB_HOST"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME", "mstore_db"),
-            "USER": os.getenv("DB_USER", "devuser"),
-            "PASSWORD": os.getenv("DB_PASSWORD", "dev_password"),
-            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-            "PORT": os.getenv("DB_PORT", "5432"),
-        }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+# Use config values (SECRET_KEY from base is a default, override with env if needed)
+SECRET_KEY = CONFIG_SECRET_KEY
+ALLOWED_HOSTS = ALLOWED_HOSTS
+ALLOWED_ORIGINS = ALLOWED_ORIGINS
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".localhost"]
+DATABASES = {
+    'default': parse(DATABASE_URL)
+    # "default": parse(PRODUCTION_DB, conn_max_age=600)
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+}
 
+STORAGES = {
+    # Media: Goes to Cloudinary
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    
+    # Static: Stays local (or use WhiteNoise in production)
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+
+# CACHES = {
+#     "default": {
+#         "BACKEND": "django_redis.cache.RedisCache",
+#         "LOCATION": os.getenv("REDIS_URL", "redis://redis:6379/1"),
+#         "OPTIONS": {
+#             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+#         },
+#     }
+# }
+
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 

@@ -1,9 +1,8 @@
 from django.db import models
 from django.utils import timezone
-from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 import uuid
-from cloudinary.models import CloudinaryField
+
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -18,6 +17,7 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("role", "platform_admin")
 
         if extra_fields.get("is_staff") is not True:
             raise ValueError("Superuser must have is_staff=True.")
@@ -28,17 +28,25 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    """
+    Platform-level user. The `role` field describes the user's relationship
+    with the *platform*, not with any specific store.
+
+        PLATFORM_ADMIN — internal ops / platform super-admin
+        TENANT         — business owner (self-registered)
+        STAFF          — store employee (provisioned by a tenant admin)
+    """
+
     class RoleChoices(models.TextChoices):
-        ADMIN = "admin", "Admin"
-        STAFF = "staff", "Staff"
-
-
+        PLATFORM_ADMIN = "platform_admin", "Platform Admin"
+        TENANT         = "tenant",         "Tenant (Business Owner)"
+        STAFF          = "staff",          "Staff (Store Employee)"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     role = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=RoleChoices.choices,
-        default=RoleChoices.STAFF,
+        default=RoleChoices.TENANT,
     )
     email = models.EmailField(unique=True)
     created_at = models.DateTimeField(default=timezone.now)
@@ -57,3 +65,17 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+    # ── Convenience helpers used by serializers & permission classes ── #
+
+    @property
+    def is_platform_admin(self):
+        return self.role == self.RoleChoices.PLATFORM_ADMIN
+
+    @property
+    def is_tenant_owner(self):
+        return self.role == self.RoleChoices.TENANT
+
+    @property
+    def is_store_staff(self):
+        return self.role == self.RoleChoices.STAFF

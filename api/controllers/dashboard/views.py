@@ -20,6 +20,21 @@ class BusinessProfileAPIView(APIView):
             "created_at": tenant.created_at
         })
 
+    def patch(self, request):
+        tenant = request.tenant
+        serializer = TenantSerializer(tenant, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "id": tenant.id,
+                "name": tenant.name,
+                "subdomain": tenant.subdomain,
+                "category": tenant.get_business_type_display(),
+                "is_active": tenant.is_active,
+                "created_at": tenant.created_at
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class StaffProfileAPIView(APIView):
     permission_classes = [IsAuthenticated, HasTenantAccess]
 
@@ -78,12 +93,19 @@ class StaffAddAPIView(APIView):
     def post(self, request):
         tenant = request.tenant
         email = request.data.get('email')
-        role = request.data.get('role', 'STAFF')
+        store_role = request.data.get('role', TenantUser.Role.STAFF)
         first_name = request.data.get('first_name', '')
         last_name = request.data.get('last_name', '')
 
         if not email:
             return Response({"error": "Email is required"}, status=400)
+
+        valid_roles = [r.value for r in TenantUser.Role]
+        if store_role not in valid_roles:
+            return Response(
+                {"error": f"Invalid role. Must be one of: {', '.join(valid_roles)}"},
+                status=400
+            )
 
         from django.contrib.auth import get_user_model
         from django.db import transaction
@@ -92,39 +114,96 @@ class StaffAddAPIView(APIView):
 
         try:
             with transaction.atomic():
-                # 1. Create or get User (Only email)
-                user, created = User.objects.get_or_create(email=email)
+                # 1. Create or get User — provisioned staff get platform role = STAFF
+                user, created = User.objects.get_or_create(
+                    email=email,
+                    defaults={'role': User.RoleChoices.STAFF}
+                )
 
                 if created:
-                    import string
-                    import random
+                    import string, random
                     password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
                     user.set_password(password)
                     user.save()
-                    # In a real app, send email here
+                    # TODO: send welcome/invite email with temp password
                     print(f"DEBUG: Provisioned staff {email} with password: {password}")
 
                 # 2. Create or Update Profile
                 Profile.objects.update_or_create(
                     user=user,
-                    defaults={
-                        'first_name': first_name,
-                        'last_name': last_name
-                    }
+                    defaults={'first_name': first_name, 'last_name': last_name}
                 )
 
-                # 3. Check if already a staff of this tenant
+                # 3. Check if already linked to this tenant
                 if TenantUser.objects.filter(user=user, tenant=tenant).exists():
-                    return Response({"detail": "User is already a staff member of this business"}, status=400)
+                    return Response(
+                        {"detail": "User is already a member of this business"},
+                        status=400
+                    )
 
-                # 4. Link to Tenant
-                TenantUser.objects.create(user=user, tenant=tenant, role=role)
+                # 4. Link to Tenant with the requested in-store role
+                TenantUser.objects.create(user=user, tenant=tenant, role=store_role)
 
                 return Response({
-                    "message": "Staff added successfully",
+                    "message": "Staff member added successfully",
                     "email": email,
-                    "role": role
+                    "store_role": store_role,
+                    "platform_role": user.role,
                 }, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"detail": f"Failed to add staff: {str(e)}"}, status=500)
+
+
+class StaffDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def patch(self, request, user_id):
+        tenant = request.tenant
+        try:
+            tenant_user = TenantUser.objects.get(user_id=user_id, tenant=tenant)
+        except TenantUser.DoesNotExist:
+            return Response({"error": "Staff member not found"}, status=404)
+
+        role = request.data.get('role')
+        if role:
+            valid_roles = [r.value for r in TenantUser.Role]
+            if role not in valid_roles:
+                return Response(
+                    {"error": f"Invalid role. Must be one of: {', '.join(valid_roles)}"},
+                    status=400
+                )
+            tenant_user.role = role
+            tenant_user.save()
+
+        # Update profile if needed
+        first_name = request.data.get('first_name')
+        last_name = request.data.get('last_name')
+        if first_name is not None or last_name is not None:
+            profile = tenant_user.user.profile
+            if first_name is not None:
+                profile.first_name = first_name
+            if last_name is not None:
+                profile.last_name = last_name
+            profile.save()
+
+        return Response({
+            "message": "Staff member updated successfully",
+            "role": tenant_user.role,
+            "role_display": tenant_user.get_role_display()
+        })
+
+    def delete(self, request, user_id):
+        tenant = request.tenant
+        try:
+            tenant_user = TenantUser.objects.get(user_id=user_id, tenant=tenant)
+        except TenantUser.DoesNotExist:
+            return Response({"error": "Staff member not found"}, status=404)
+
+        # Owners cannot be deleted
+        if tenant_user.role == TenantUser.Role.OWNER:
+            return Response({"error": "Cannot remove the business owner"}, status=400)
+
+        tenant_user.delete()
+        return Response({"message": "Staff member removed from business context successfully"}, status=200)
+
 

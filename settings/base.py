@@ -17,17 +17,8 @@ load_dotenv()
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+# DEBUG and ALLOWED_HOSTS are set per-environment in dev.py or prod.py
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000", 
-    "https://ebuy-django-backend.onrender.com",
-    "https://ebuy-frontend.vercel.app",
-]
-
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https:\/\/[\w\-]+\.ngrok\-free\.app$",
-    r"^http:\/\/[\w\-]+\.localhost:3000$",
-]
 
 from corsheaders.defaults import default_headers
 
@@ -35,18 +26,12 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-tenant",
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://*.localhost:3000",
-    "https://ebuy-django-backend.onrender.com",
-    "https://ebuy-frontend.vercel.app",
-]
 
 # Application definition
 
 # sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 # sys.path.append(str(BASE_DIR / 'apps'))
+
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -73,6 +58,7 @@ INSTALLED_APPS = [
     "apps.products",
     "apps.notifications",
     "apps.tenants",
+    "apps.sales",
 ]
 
 AUTH_USER_MODEL = "users.User" 
@@ -91,12 +77,12 @@ cloudinary.config(
 )
 
 MIDDLEWARE = [
-    "middlewares.tenant_middleware.TenantMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "middlewares.tenant_middleware.TenantMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 
@@ -110,7 +96,7 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
-ROOT_URLCONF = "config.urls"
+ROOT_URLCONF = "src.urls"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         # "rest_framework.authentication.TokenAuthentication",  # Basic static token auth
@@ -158,8 +144,8 @@ REST_AUTH = {
     'JWT_AUTH_REFRESH_COOKIE': 'jwt-refresh-token',
     'JWT_AUTH_HTTPONLY': False,
     'SESSION_LOGIN': False,
-    'USER_DETAILS_SERIALIZER': 'controllers.auth.serializers.UserDetailSerializer',
-    'REGISTER_SERIALIZER': 'controllers.auth.serializers.CustomRegisterSerializer',
+    'USER_DETAILS_SERIALIZER': 'api.controllers.auth.serializers.UserDetailSerializer',
+    'REGISTER_SERIALIZER': 'api.controllers.auth.serializers.CustomRegisterSerializer',
 }
 
 STORAGES = {
@@ -177,9 +163,6 @@ STORAGES = {
 
 
 
-# Email backend for development
-# For production, use:
-
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -196,7 +179,7 @@ TEMPLATES = [
 ]
 
 
-WSGI_APPLICATION = "config.wsgi.application"
+WSGI_APPLICATION = "src.wsgi.application"
 
 
 # Password validation

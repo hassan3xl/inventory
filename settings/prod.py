@@ -1,21 +1,25 @@
 from .base import *
 import os
 import dj_database_url
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DEBUG = False
 
-SECRET_KEY = os.environ["SECRET_KEY"]
+from src.config import (
+    DATABASE_URL,
+    SECRET_KEY,
+    ALLOWED_HOSTS,
+)
+SECRET_KEY = SECRET_KEY
 
-ALLOWED_HOSTS = os.environ.get(
-    "ALLOWED_HOSTS",
-    "localhost,127.0.0.1"
-).split(",")
-
+ALLOWED_HOSTS = ALLOWED_HOSTS.split(",") if ALLOWED_HOSTS else []
 
 
 DATABASES = {
 
-    "default": dj_database_url.config(default=os.getenv("DB_URL"))
+    "default": dj_database_url.config(DATABASE_URL)
 }
 
 

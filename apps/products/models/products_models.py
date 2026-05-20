@@ -57,17 +57,33 @@ class Product(TenantBaseModel):
         """
         Updates product total stock and earliest expiry date from its batches.
         """
-        batches = self.batches.filter(quantity__gt=0)
+        from django.utils import timezone
+        now = timezone.now().date()
+
+        # All batches with remaining quantity
+        all_batches = self.batches.filter(quantity__gt=0)
+
+        # Active (non-expired) batches
+        active_batches = all_batches.filter(
+            models.Q(expiry_date__isnull=True) | models.Q(expiry_date__gte=now)
+        )
         
-        # Calculate total stock
-        total_stock = batches.aggregate(models.Sum('quantity'))['quantity__sum'] or 0
+        # Calculate total stock of non-expired batches
+        total_stock = active_batches.aggregate(models.Sum('quantity'))['quantity__sum'] or 0
         self.stock = total_stock
         
-        # Find earliest expiry date (FEFO - First Expired First Out)
-        earliest_batch = batches.filter(expiry_date__isnull=False).order_by('expiry_date').first()
+        # Find earliest expiry date (FEFO - First Expired First Out) among active ones first
+        earliest_batch = active_batches.filter(expiry_date__isnull=False).order_by('expiry_date').first()
+        if not earliest_batch:
+            # Fallback to expired batches if no active batches are left
+            earliest_batch = all_batches.filter(expiry_date__isnull=False).order_by('expiry_date').first()
+
         if earliest_batch:
             self.expiry_date = earliest_batch.expiry_date
             self.production_date = earliest_batch.production_date
+        else:
+            self.expiry_date = None
+            self.production_date = None
             
         # Update without recursion
         Product.objects.filter(id=self.id).update(
@@ -129,6 +145,11 @@ class StockBatch(TenantBaseModel):
         super().save(*args, **kwargs)
         # Update product totals after batch change
         self.product.update_stock_from_batches()
+
+    def delete(self, *args, **kwargs):
+        product = self.product
+        super().delete(*args, **kwargs)
+        product.update_stock_from_batches()
 
 
 class ProductInventory(TenantBaseModel):

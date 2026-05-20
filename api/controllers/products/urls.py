@@ -1,11 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductViewSet
 from .views import (
+    ProductViewSet,
     ProductInventoryView,
     ProductImagesViewSet,
     CategoryViewSet,
     InventoryStatsView,
+    BatchReceiveView,
+    BatchDetailView,
 )
 
 router = DefaultRouter()
@@ -48,4 +50,15 @@ urlpatterns = [
         name="set-primary"
     ),
 
+    # Batch management (FEFO stock receiving)
+    path(
+        "<uuid:product_id>/batches/",
+        BatchReceiveView.as_view(),
+        name="product-batches"
+    ),
+    path(
+        "<uuid:product_id>/batches/<uuid:pk>/",
+        BatchDetailView.as_view(),
+        name="product-batch-detail"
+    ),
 ]

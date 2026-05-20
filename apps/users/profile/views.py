@@ -5,7 +5,7 @@ from apps.users.models.profiles import Profile
 from apps.users.models.users import User
 from apps.users.profile.serializers import ProfileSerializer
 
-class UserProfileView(generics.RetrieveAPIView):
+class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 

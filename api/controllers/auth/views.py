@@ -26,34 +26,58 @@ from apps.tenants.models import TenantUser
 User = get_user_model()
 
 class TenantLoginView(LoginView):
+    """
+    Enhanced login view that:
+    1. Allows login without requiring tenant context (for development)
+    2. Returns tenant_id + tenant_name for frontend routing
+    3. Returns a `permissions` block so the frontend can immediately
+       guard routes and sidebar items without an extra /me request
+    """
     def post(self, request, *args, **kwargs):
-        tenant = getattr(request, 'tenant', None)
-        print(f"DEBUG: Login attempt on tenant: {tenant}")
-        
-        # Proceed with normal authentication
         response = super().post(request, *args, **kwargs)
-        
+
         if response.status_code == 200:
             user = self.user
-            print(f"DEBUG: User {user.email} authenticated. Checking tenant access...")
-            
-            # Verify user belongs to this tenant
-            if not tenant:
-                print("DEBUG: Login rejected: No tenant context.")
-                return Response(
-                    {"detail": "Business context not identified. Please use your subdomain."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            has_access = TenantUser.objects.filter(user=user, tenant=tenant).exists()
-            if not has_access:
-                print(f"DEBUG: Login rejected: User {user.email} does not belong to {tenant.subdomain}")
-                return Response(
-                    {"detail": f"Account '{user.email}' is not registered with '{tenant.name}'."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            print(f"DEBUG: Login successful for {user.email} on {tenant.subdomain}")
-        
+            tenant = getattr(request, 'tenant', None)
+
+            # Get user's tenants
+            user_tenants = TenantUser.objects.filter(user=user).select_related('tenant')
+
+            # Verify membership if tenant context was provided
+            if tenant:
+                has_access = user_tenants.filter(tenant=tenant).exists()
+                if not has_access:
+                    return Response(
+                        {"detail": f"Account '{user.email}' is not registered with this business."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                response.data['tenant_id'] = str(tenant.id)
+                response.data['tenant_name'] = tenant.name
+            elif user_tenants.exists():
+                primary_tenant = user_tenants.first().tenant
+                response.data['tenant_id'] = str(primary_tenant.id)
+                response.data['tenant_name'] = primary_tenant.name
+            else:
+                response.data['tenant_id'] = None
+                response.data['tenant_name'] = None
+
+            response.data['available_tenants'] = [
+                {
+                    'id': str(tu.tenant.id),
+                    'name': tu.tenant.name,
+                    'subdomain': tu.tenant.subdomain,
+                    'role': tu.role,
+                    'role_display': tu.get_role_display(),
+                }
+                for tu in user_tenants
+            ]
+
+            # Full permissions block — use these flags directly in the UI
+            from .serializers import UserDetailSerializer
+            response.data['permissions'] = UserDetailSerializer(
+                user, context={'request': request}
+            ).data.get('permissions', {})
+
         return response
 
 class GoogleLogin(SocialLoginView):
